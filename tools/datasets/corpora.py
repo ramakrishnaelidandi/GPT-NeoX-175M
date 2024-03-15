@@ -406,7 +406,7 @@ def prepare_dataset(
         data_dir = os.environ.get("DATA_DIR", "./data")
     os.makedirs(data_dir, exist_ok=True)
     maybe_download_gpt2_tokenizer_data(tokenizer_type, data_dir)
-    DownloaderClass = DATA_DOWNLOADERS.get(dataset_name.lower(), None)
+    DownloaderClass = DATA_DOWNLOADERS.get(dataset_name.split('/')[0].lower(), None)
     if DownloaderClass is None:
         raise NotImplementedError(
             f'Dataset "{dataset_name}" not recognized - please choose from {list(DATA_DOWNLOADERS.keys())}'
