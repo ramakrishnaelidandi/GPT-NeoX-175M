@@ -17,6 +17,9 @@
 import os
 from abc import ABC, abstractmethod
 from multiprocessing import cpu_count
+from datasets import load_dataset
+from tqdm import tqdm
+import zipfile
 
 """
 This registry is for automatically downloading and extracting datasets.
@@ -43,6 +46,7 @@ class DataDownloader(ABC):
         data_dir=None,
         force_redownload=None,
         num_workers=None,
+        dataset_name=None,
     ):
         if tokenizer_type is None:
             tokenizer_type = "GPT2BPETokenizer"
@@ -69,6 +73,7 @@ class DataDownloader(ABC):
         self._data_dir = data_dir
         self._force_redownload = force_redownload
         self._num_workers = num_workers
+        self.dataset_name = dataset_name
 
     @property
     def base_dir(self):
@@ -134,12 +139,13 @@ class DataDownloader(ABC):
             except Exception as e:
                 raise Exception(f"Download error: {e}")
 
-    def tokenize(self):
+    def tokenize(self, jsonl_filepath = None):
+
         """tokenizes dataset"""
         parent_folder = os.path.join(self.base_dir, self.name)
-        jsonl_filepath = ",".join(
+        jsonl_filepath = jsonl_filepath if jsonl_filepath is not None else ",".join(
             [os.path.join(parent_folder, os.path.basename(url)) for url in self.urls]
-        )
+        )  
 
         cmd = f"python tools/datasets/preprocess_data.py \
             --input {jsonl_filepath} \
@@ -159,14 +165,59 @@ class DataDownloader(ABC):
 
         os.system(cmd)
 
+    def download_dataset_from_HF(self):
+
+        os.makedirs(os.path.join(self.base_dir, self.name), exist_ok=True)
+        download_dir = os.path.join(self.base_dir, self.name)
+        zip_file_path = os.path.join(download_dir, f"{self.name}.zip")
+
+        dataset = load_dataset(*self.dataset_name.split('/')[1:])
+
+        text = ""
+
+        for  split in dataset.keys():
+            for row in tqdm(iter(dataset[str(split)])):
+                text += row['text']
+
+        
+        with zipfile.ZipFile(zip_file_path, 'w') as zipf:
+            zipf.writestr('data.txt', text)
+        
+            
+    def customdataset_from_text(self):
+
+        os.makedirs(os.path.join(self.base_dir, self.name), exist_ok=True)
+        download_dir = os.path.join(self.base_dir, self.name)
+        text_dir = os.path.join(self.base_dir, "text_file.txt")
+        zip_file_path = os.path.join(download_dir, f"{self.name}.zip")
+        
+        with open(text_dir, 'r') as file:
+            text_data = file.read()
+        
+        with zipfile.ZipFile(zip_file_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+            zipf.writestr('data.txt', text_data)
+
+
     def prepare(self):
-        if self._force_redownload:
+
+        if self.name == "hfdataset":
+            self.download_dataset_from_HF()
+            zip_file_path = os.path.join(os.path.join(self.base_dir, self.name), f"{self.name}.zip")
+            self.tokenize(zip_file_path)
+        
+        elif self.name == "customdataset":
+            self.customdataset_from_text()
+            zip_file_path = os.path.join(os.path.join(self.base_dir, self.name), f"{self.name}.zip")
+            self.tokenize(zip_file_path)
+
+        elif self._force_redownload:
             self.download()
+            self.tokenize()
         else:
             if not self.exists():
                 self.download()
-
-        self.tokenize()
+            self.tokenize()
+        
 
 
 class Enron(DataDownloader):
@@ -293,6 +344,16 @@ class Enwik8(DataDownloader):
     urls = ["http://mattmahoney.net/dc/enwik8.zip"]
 
 
+class CustomDataset(DataDownloader):
+    name = "customdataset"
+    urls = None 
+
+
+class HFDataset(DataDownloader):
+    name = "hfdataset"
+    urls = None
+
+
 def maybe_download_gpt2_tokenizer_data(tokenizer_type, data_dir):
     if tokenizer_type is None or tokenizer_type == "GPT2BPETokenizer":
         GPT2_VOCAB_FP = f"{data_dir}//gpt2-vocab.json"
@@ -324,6 +385,8 @@ DATA_DOWNLOADERS = {
     "c4": C4,
     "c4_openwebtext": C4OpenWebText,
     "enwik8": Enwik8,
+    "hfdataset": HFDataset,
+    "customdataset": CustomDataset,
 }
 
 
@@ -351,8 +414,19 @@ def prepare_dataset(
     elif DownloaderClass == "pass":
         # pass on building dataset (for unit tests)
         pass
+    # elif dataset_name == "hfdataset":
+    #     d = DownloaderClass(
+    #         tokenizer_type=tokenizer_type,
+    #         vocab_file=vocab_file,
+    #         merge_file=merge_file,
+    #         data_dir=data_dir,
+    #         force_redownload=force_redownload,
+    #         num_workers = num_workers,
+    #     )
+
     else:
         num_workers = 1 if dataset_name == "enwik8" else num_workers
+        ds_name  = dataset_name if dataset_name.split('/')[0] in ["customdataset", "hfdataset"] else None
         d = DownloaderClass(
             tokenizer_type=tokenizer_type,
             vocab_file=vocab_file,
@@ -360,5 +434,6 @@ def prepare_dataset(
             data_dir=data_dir,
             force_redownload=force_redownload,
             num_workers=num_workers,
+            dataset_name = ds_name
         )
         d.prepare()
