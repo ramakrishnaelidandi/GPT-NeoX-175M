@@ -33,8 +33,9 @@ def get_args():
         nargs="?",
         default="enwik8",
         help="name of dataset to download.",
-        choices=DATASET_CHOICES,
+        
     )
+    # choices=DATASET_CHOICES,
     parser.add_argument(
         "-t",
         "--tokenizer",
