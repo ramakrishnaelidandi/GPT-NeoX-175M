@@ -408,7 +408,7 @@ def prepare_dataset(
     maybe_download_gpt2_tokenizer_data(tokenizer_type, data_dir)
     DownloaderClass = DATA_DOWNLOADERS.get(dataset_name.split('/')[0].lower(), None)
 
-    print(f'check {dataset_name.split('/')[0]}')
+    # print(f'check {dataset_name.split('/')[0]}')
     if DownloaderClass is None:
         raise NotImplementedError(
             f'Dataset "{dataset_name}" not recognized - please choose from {list(DATA_DOWNLOADERS.keys())}'
