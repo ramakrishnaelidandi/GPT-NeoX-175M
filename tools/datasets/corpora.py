@@ -176,9 +176,12 @@ class DataDownloader(ABC):
         text = ""
 
         for  split in dataset.keys():
+
+            if split.lower() == "train":
+                continue
+
             for row in tqdm(iter(dataset[str(split)])):
                 text += row['text']
-
         
         with zipfile.ZipFile(zip_file_path, 'w') as zipf:
             zipf.writestr('data.txt', text)
@@ -188,14 +191,19 @@ class DataDownloader(ABC):
 
         os.makedirs(os.path.join(self.base_dir, self.name), exist_ok=True)
         download_dir = os.path.join(self.base_dir, self.name)
-        text_dir = os.path.join(self.base_dir, "text_file.txt")
+
         zip_file_path = os.path.join(download_dir, f"{self.name}.zip")
-        
-        with open(text_dir, 'r') as file:
-            text_data = file.read()
+        txt_files = [f for f in os.listdir(self.base_dir) if f.endswith('.txt') and f != "gpt2-merges.txt"]
+
+        # Assert that there are .txt files
+        assert txt_files, f"No textfile found at {self.base_dir}."
         
         with zipfile.ZipFile(zip_file_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
-            zipf.writestr('data.txt', text_data)
+
+            for txt_file in txt_files:
+                file_path = os.path.join(self.base_dir, txt_file)
+                zipf.write(file_path, os.path.basename(file_path))
+                
 
 
     def prepare(self):
