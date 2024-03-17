@@ -177,8 +177,8 @@ class DataDownloader(ABC):
 
         for  split in dataset.keys():
 
-            if split.lower() == "train":
-                continue
+            # if split.lower() == "train":
+            #     continue
 
             for row in tqdm(iter(dataset[str(split)])):
                 text += row['text']
@@ -424,15 +424,6 @@ def prepare_dataset(
     elif DownloaderClass == "pass":
         # pass on building dataset (for unit tests)
         pass
-    # elif dataset_name == "hfdataset":
-    #     d = DownloaderClass(
-    #         tokenizer_type=tokenizer_type,
-    #         vocab_file=vocab_file,
-    #         merge_file=merge_file,
-    #         data_dir=data_dir,
-    #         force_redownload=force_redownload,
-    #         num_workers = num_workers,
-    #     )
 
     else:
         num_workers = 1 if dataset_name == "enwik8" else num_workers
